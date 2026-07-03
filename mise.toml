@@ -1,0 +1,6 @@
+[vars]
+  tmp = "./tmp/"
+
+[tasks.build]
+  description = "build binary"
+  run = "go build -o {{ vars.tmp }} ."
