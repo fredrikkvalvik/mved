@@ -4,3 +4,7 @@
 [tasks.build]
   description = "build binary"
   run = "go build -o {{ vars.tmp }} ."
+
+[tasks.test]
+  description = "run tests"
+  run = "go test ./..."

@@ -1,10 +1,16 @@
 package main
 
-import "io/fs"
-
 type Entry struct {
 	Path  string
 	Name  string
 	IsDir bool
-	Ref   fs.DirEntry
+}
+
+func EntryIsEqual(a, b Entry) bool {
+	return a.Name == b.Name &&
+		a.Path == b.Path
+}
+
+type Change struct {
+	From, To Entry
 }

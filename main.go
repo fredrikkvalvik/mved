@@ -23,10 +23,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -47,6 +49,31 @@ func main() {
 	}
 }
 
+// 1. read entries
+// 2. create tmp file and output [id file]
+// 3. parse updated file and validate
+// 4. execute changes
+func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
+	entries, err := BuildEntries(flags, root)
+	if err != nil {
+		return err
+	}
+
+	var entriesBuffer bytes.Buffer
+	_, _ = fmt.Fprintln(&entriesBuffer, printEntries(entries))
+
+	editedEntriesBuffer, err := EditEntries(&entriesBuffer, in, out)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(editedEntriesBuffer)
+
+	// parsedEntries, err := ParseEntries(f.Name())
+
+	return nil
+}
+
 // ORDER IS IMPORTANT.
 //
 // The index of an item is its ID.
@@ -56,24 +83,51 @@ func BuildEntries(flags Flags, root fs.FS) ([]Entry, error) {
 		err     error
 	)
 	if flags.Recursive {
-		fmt.Println("recursive")
 		entries, err = readDirRecursive(root)
 	} else {
-		fmt.Println("flat")
 		entries, err = readDir(root)
 	}
 
 	return entries, err
 }
 
-func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
-	entries, err := BuildEntries(flags, root)
+// Opens the editor and allows the user to change
+// the entries list.
+func EditEntries(buf io.Reader, stdin io.Reader, stdout io.Writer) (io.Reader, error) {
+	f, _ := os.CreateTemp("", "")
+	defer os.Remove(f.Name())
+	_, err := io.Copy(f, buf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, _ = fmt.Fprintln(out, printEntries(entries))
+	cmd := exec.Command(os.ExpandEnv("$EDITOR"), f.Name())
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
 
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(f.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewBuffer(b), nil
+}
+
+// TODO: add tests
+func ParseEntries(buf io.Reader) ([]Entry, error) {
+	return nil, nil
+}
+
+// TODO: add tests
+func BuildChangeset() []Change {
+	return nil
+}
+
+// TODO: add tests
+func ExecuteChangeset() error {
 	return nil
 }
 
@@ -89,7 +143,6 @@ func readDir(root fs.FS) ([]Entry, error) {
 			Path:  e[idx].Name(),
 			Name:  e[idx].Name(),
 			IsDir: e[idx].IsDir(),
-			Ref:   e[idx],
 		}
 	}
 	return entries, nil
@@ -99,11 +152,13 @@ func readDirRecursive(root fs.FS) ([]Entry, error) {
 	fmt.Println("recursive")
 	entries := []Entry{}
 	err := fs.WalkDir(root, ".", func(path string, d fs.DirEntry, err error) error {
+		if path == "." {
+			return nil
+		}
 		entries = append(entries, Entry{
 			Path:  path,
 			Name:  d.Name(),
 			IsDir: d.IsDir(),
-			Ref:   d,
 		})
 		return nil
 	})
