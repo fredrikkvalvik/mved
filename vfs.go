@@ -131,13 +131,15 @@ func EditEntries(buf io.Reader, stdin io.Reader, stdout io.Writer) (io.Reader, e
 	return bytes.NewBuffer(b), nil
 }
 
-// TODO: add tests
+// Parse the a buffer, line by line, and
+// try to parse each line into an [Entry].
 func ParseEntries(buf io.Reader) ([]Entry, error) {
 	s := bufio.NewScanner(buf)
 
 	var (
 		entries   = []Entry{}
 		linecount = -1
+		errs      []error
 	)
 	for s.Scan() {
 		linecount += 1
@@ -171,7 +173,8 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 
 		// we expect two fields, id and path
 		if len(fields) != 2 {
-			return nil, fmt.Errorf("[%d] expected two fields on line, got=%d", linecount, len(fields))
+			errs = append(errs, fmt.Errorf("[%d] expected two fields on line, got=%d", linecount, len(fields)))
+			continue
 		}
 
 		idStr, entryPath := fields[0], fields[1]
@@ -180,12 +183,14 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 		// try to parse the first field to an integer
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			return nil, fmt.Errorf("[%d] id of entry must be an integer", linecount)
+			errs = append(errs, fmt.Errorf("[%d] id of entry must be an integer", linecount))
+			continue
 		}
 
 		// validate the path to make sure it is valid
 		if !fs.ValidPath(entryPath) {
-			return nil, fmt.Errorf("[%d] the entry path is invalid", linecount)
+			errs = append(errs, fmt.Errorf("[%d] the entry path is invalid", linecount))
+			continue
 		}
 		// normalize the path to pick up different text that should point to the same path
 		entryPath = path.Clean(entryPath)
@@ -196,6 +201,10 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 
 	if s.Err() != nil {
 		return nil, s.Err()
+	}
+
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
 	}
 
 	return entries, nil
