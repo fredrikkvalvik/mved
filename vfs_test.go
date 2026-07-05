@@ -37,7 +37,7 @@ func TestBuildEntries(t *testing.T) {
 			filesys: fsSimple(),
 			expect: []Entry{
 				{Path: "a"},
-				{ID: 1, Path: "b", IsDir: true},
+				{ID: 1, Path: "b"},
 			},
 		},
 		{
@@ -46,7 +46,7 @@ func TestBuildEntries(t *testing.T) {
 			filesys: fsSimple(),
 			expect: []Entry{
 				{Path: "a"},
-				{ID: 1, Path: "b", IsDir: true},
+				{ID: 1, Path: "b"},
 			},
 		},
 		{
@@ -54,7 +54,7 @@ func TestBuildEntries(t *testing.T) {
 			flags:   Flags{Recursive: false},
 			filesys: fsDeep(),
 			expect: []Entry{
-				{Path: "a1", IsDir: true},
+				{Path: "a1"},
 			},
 		},
 		{
@@ -62,9 +62,9 @@ func TestBuildEntries(t *testing.T) {
 			flags:   Flags{Recursive: true},
 			filesys: fsDeep(),
 			expect: []Entry{
-				{Path: "a1", IsDir: true},
-				{ID: 1, Path: "a1/b1", IsDir: true},
-				{ID: 2, Path: "a1/b1/c1", IsDir: true},
+				{Path: "a1"},
+				{ID: 1, Path: "a1/b1"},
+				{ID: 2, Path: "a1/b1/c1"},
 			},
 		},
 	}
@@ -154,6 +154,25 @@ func TestParseEntries(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tt.expect, actual)
 			}
+		})
+	}
+}
+
+func TestBuildChangeset(t *testing.T) {
+	tests := []struct {
+		name                 string
+		inOriginal, inParsed []Entry
+		expect               []Change
+	}{
+		{
+			name: "empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			changes := BuildChangeset(tt.inParsed, tt.inOriginal)
+			require.Equal(t, tt.expect, changes)
 		})
 	}
 }

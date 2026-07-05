@@ -3,9 +3,8 @@ package main
 import "path"
 
 type Entry struct {
-	ID    int
-	Path  string
-	IsDir bool
+	ID   int
+	Path string
 }
 
 func (e Entry) Name() string {

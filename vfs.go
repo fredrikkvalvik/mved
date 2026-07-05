@@ -25,6 +25,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -33,6 +34,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 func main() {
@@ -47,7 +49,7 @@ func main() {
 	}
 
 	if err := Run(flags, root, os.Stdin, os.Stdout); err != nil {
-		fmt.Fprint(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
@@ -70,9 +72,19 @@ func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	fmt.Println(editedEntriesBuffer)
+	parsed, err := ParseEntries(editedEntriesBuffer)
+	if err != nil {
+		return err
+	}
 
-	// parsedEntries, err := ParseEntries(f.Name())
+	err = ValidatedParsed(parsed, entries)
+	if err != nil {
+		return err
+	}
+
+	changes := BuildChangeset(parsed, entries)
+
+	fmt.Println(changes)
 
 	return nil
 }
@@ -143,9 +155,13 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 			continue
 		}
 
-		// discard everything after " #", as that would be a comment
-		// TODO: make robust, as this does not handle other types of whitespace
-		line = strings.SplitN(line, " #", 2)[0]
+		// scan  the line and look for a comment.
+		commentIndex := indexOfLineComment(line)
+
+		// comment found, strip away
+		if commentIndex > -1 {
+			line = string([]rune(line)[0:commentIndex])
+		}
 
 		// remove possible empty space after comment split
 		line = strings.TrimSpace(line)
@@ -185,9 +201,79 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 	return entries, nil
 }
 
-// TODO: add tests
-func BuildChangeset() []Change {
+// return index of the rune where a space is followed by a '#'
+//
+// if noe comment is found, return -1
+func indexOfLineComment(line string) int {
+	// start out true to handle the line starting with '#'
+	prevSpace := true
+	for idx, ch := range line {
+		if unicode.IsSpace(ch) {
+			prevSpace = true
+			continue
+		}
+		if ch == '#' && prevSpace {
+			return idx
+		}
+
+		// reset prevSpace as none of the above was true
+		prevSpace = false
+	}
+	return -1
+}
+
+// run validations on the parsed list of entries
+func ValidatedParsed(parsed, original []Entry) error {
+	errs := []error{}
+
+	occurences := map[int]struct{}{}
+
+	for _, entry := range parsed {
+		// make sure the ID is somewhere within the allowed boundary
+		if entry.ID >= len(original) || entry.ID < 0 {
+			errs = append(errs, fmt.Errorf("[%d] invalid id", entry.ID))
+		}
+
+		// make sure that no ID occurs more than once
+		if _, found := occurences[entry.ID]; !found {
+			occurences[entry.ID] = struct{}{}
+		} else {
+			errs = append(errs, fmt.Errorf("[%d] multiple occurences. only one is allowed", entry.ID))
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 	return nil
+}
+
+func BuildChangeset(parsed, original []Entry) []Change {
+
+	var (
+		// all entries are "marked for deletion" by default.
+		// we need to see the entry to "unmark" it
+		occurrences = map[int]struct{}{}
+		changes     = []Change{}
+	)
+	// mark every parsed entry as
+	for _, e := range parsed {
+		// add to occurences map right away
+		occurrences[e.ID] = struct{}{}
+
+		og := original[e.ID]
+
+		// if entries are equal, no change is needed
+		if EntryIsEqual(og, e) {
+			continue
+		}
+		changes = append(changes, Change{
+			From: og,
+			To:   e,
+		})
+	}
+	return nil
+
 }
 
 // TODO: add tests
@@ -204,9 +290,8 @@ func readDir(root fs.FS) ([]Entry, error) {
 	entries := make([]Entry, len(e))
 	for idx := range e {
 		entries[idx] = Entry{
-			ID:    idx,
-			Path:  e[idx].Name(),
-			IsDir: e[idx].IsDir(),
+			ID:   idx,
+			Path: e[idx].Name(),
 		}
 	}
 	return entries, nil
@@ -223,9 +308,8 @@ func readDirRecursive(root fs.FS) ([]Entry, error) {
 		}
 		linecount += 1
 		entries = append(entries, Entry{
-			ID:    linecount,
-			Path:  path,
-			IsDir: d.IsDir(),
+			ID:   linecount,
+			Path: path,
 		})
 		return nil
 	})
