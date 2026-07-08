@@ -35,37 +35,25 @@ func TestBuildEntries(t *testing.T) {
 			name:    "simple flat",
 			flags:   Flags{Recursive: false},
 			filesys: fsSimple(),
-			expect: []Entry{
-				{Path: "a"},
-				{ID: 1, Path: "b"},
-			},
+			expect:  createTestEntries("a", "b"),
 		},
 		{
 			name:    "simple recursive",
 			flags:   Flags{Recursive: true},
 			filesys: fsSimple(),
-			expect: []Entry{
-				{Path: "a"},
-				{ID: 1, Path: "b"},
-			},
+			expect:  createTestEntries("a", "b"),
 		},
 		{
 			name:    "nested flat",
 			flags:   Flags{Recursive: false},
 			filesys: fsDeep(),
-			expect: []Entry{
-				{Path: "a1"},
-			},
+			expect:  createTestEntries("a1"),
 		},
 		{
 			name:    "nested recursive",
 			flags:   Flags{Recursive: true},
 			filesys: fsDeep(),
-			expect: []Entry{
-				{Path: "a1"},
-				{ID: 1, Path: "a1/b1"},
-				{ID: 2, Path: "a1/b1/c1"},
-			},
+			expect:  createTestEntries("a1", "a1/b1", "a1/b1/c1"),
 		},
 	}
 
@@ -73,7 +61,6 @@ func TestBuildEntries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			entries, err := BuildEntries(tt.flags, tt.filesys)
 			require.NoError(t, err)
-			t.Logf("parsed: %v", entries)
 			require.Equal(t, tt.expect, entries, "lists items must be equal")
 		})
 	}
@@ -165,14 +152,101 @@ func TestBuildChangeset(t *testing.T) {
 		expect               []Change
 	}{
 		{
-			name: "empty",
+			name:   "empty",
+			expect: []Change{},
+		},
+
+		{
+			name:       "one change",
+			inOriginal: createTestEntries("a"),
+			inParsed:   createTestEntries("b"),
+			expect: []Change{
+				{
+					Entry{0, "a"},
+					&Entry{0, "b"},
+				},
+			},
+		},
+		{
+			name:       "one delete",
+			inOriginal: createTestEntries("a"),
+			inParsed:   createTestEntries(""),
+			expect: []Change{
+				{
+					Entry{0, "a"},
+					nil,
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			changes := BuildChangeset(tt.inParsed, tt.inOriginal)
+			changes, err := BuildChangeset(tt.inParsed, tt.inOriginal)
+			require.NoError(t, err)
+
 			require.Equal(t, tt.expect, changes)
 		})
 	}
+}
+
+func TestPipeline(t *testing.T) {
+	tests := []struct {
+		name        string
+		from        []Entry
+		to          string
+		expect      []Change
+		expectError bool
+	}{
+		{
+			name:   "no-op",
+			from:   []Entry{},
+			to:     "",
+			expect: []Change{},
+		},
+	}
+
+	checkErr := func(t *testing.T, expectError bool, err error) {
+		t.Helper()
+		if expectError {
+			require.Error(t, err)
+			return
+		} else {
+			require.NoError(t, err)
+		}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := bytes.NewBufferString(tt.to)
+			parsedEntries, err := ParseEntries(buf)
+			checkErr(t, tt.expectError, err)
+
+			err = ValidatedParsed(parsedEntries, tt.from)
+			checkErr(t, tt.expectError, err)
+
+			changes, err := BuildChangeset(parsedEntries, tt.from)
+			checkErr(t, tt.expectError, err)
+
+			require.Equal(t, tt.expect, changes)
+		})
+	}
+}
+
+// returns a list of entries with incremented IDs.
+//
+// empty strings are treated as nil and will be skipped in the list.
+func createTestEntries(paths ...string) []Entry {
+	entries := make([]Entry, 0)
+
+	for idx, path := range paths {
+		if path != "" {
+			entries = append(entries, Entry{
+				ID:   idx,
+				Path: path,
+			})
+		}
+	}
+
+	return entries
 }

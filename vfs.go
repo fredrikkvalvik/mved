@@ -67,7 +67,7 @@ func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
 	var entriesBuffer bytes.Buffer
 	_, _ = fmt.Fprintln(&entriesBuffer, printEntries(entries))
 
-	editedEntriesBuffer, err := EditEntries(&entriesBuffer, in, out)
+	editedEntriesBuffer, err := editEntries(&entriesBuffer, in, out)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,10 @@ func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	changes := BuildChangeset(parsed, entries)
+	changes, err := BuildChangeset(parsed, entries)
+	if err != nil {
+		return err
+	}
 
 	fmt.Println(changes)
 
@@ -108,7 +111,7 @@ func BuildEntries(flags Flags, root fs.FS) ([]Entry, error) {
 
 // Opens the editor and allows the user to change
 // the entries list.
-func EditEntries(buf io.Reader, stdin io.Reader, stdout io.Writer) (io.Reader, error) {
+func editEntries(buf io.Reader, stdin io.Reader, stdout io.Writer) (io.Reader, error) {
 	f, _ := os.CreateTemp("", "")
 	defer os.Remove(f.Name())
 	_, err := io.Copy(f, buf)
@@ -257,32 +260,63 @@ func ValidatedParsed(parsed, original []Entry) error {
 	return nil
 }
 
-func BuildChangeset(parsed, original []Entry) []Change {
-
+// BuildChangeset generates a list of changes by first
+// comparing the lists and see what actual changes have been made,
+// and then creating a DAG to resolve the order renames occur.
+//
+// deletions are done before moves.
+func BuildChangeset(parsed, original []Entry) ([]Change, error) {
 	var (
 		// all entries are "marked for deletion" by default.
-		// we need to see the entry to "unmark" it
-		occurrences = map[int]struct{}{}
-		changes     = []Change{}
-	)
-	// mark every parsed entry as
-	for _, e := range parsed {
-		// add to occurences map right away
-		occurrences[e.ID] = struct{}{}
+		// we need to see the entry to "unmark" it when
+		// looping the parsed entries
+		occurrences   = map[int]struct{}{}
+		renameChanges = map[int]Change{}
+		renameNodes   = []Entry{}
 
-		og := original[e.ID]
+		changes = []Change{}
+	)
+
+	for _, to := range parsed {
+		// add to occurences map since the item still existed in parsed entries
+		occurrences[to.ID] = struct{}{}
+
+		from := original[to.ID]
 
 		// if entries are equal, no change is needed
-		if EntryIsEqual(og, e) {
+		if from.IsEqual(to) {
 			continue
 		}
-		changes = append(changes, Change{
-			From: og,
-			To:   e,
-		})
-	}
-	return nil
 
+		renameNodes = append(renameNodes, from)
+		renameChanges[from.ID] = Change{
+			From: from,
+			To:   &to,
+		}
+	}
+
+	// iterate original list and look for deletions
+	for idx, e := range original {
+		_, occured := occurrences[idx]
+		if !occured {
+			changes = append(changes, Change{
+				From: e,
+			})
+		}
+	}
+
+	// build the DAG for renames
+	graph := NewGraph(renameNodes)
+	graph.ComputeEdges()
+	entriesOrdered, ok := graph.OutputChanges()
+	if !ok {
+		return nil, fmt.Errorf("circular dependancy")
+	}
+	for _, e := range entriesOrdered {
+		changes = append(changes, renameChanges[e.ID])
+	}
+
+	return changes, nil
 }
 
 // TODO: add tests
