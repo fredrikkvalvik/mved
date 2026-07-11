@@ -263,16 +263,12 @@ func ValidatedParsed(parsed, original []Entry) error {
 // BuildChangeset generates a list of changes by first
 // comparing the lists and see what actual changes have been made,
 // and then creating a DAG to resolve the order renames occur.
-//
-// deletions are done before moves.
 func BuildChangeset(parsed, original []Entry) ([]Change, error) {
 	var (
 		// all entries are "marked for deletion" by default.
 		// we need to see the entry to "unmark" it when
 		// looping the parsed entries
-		occurrences   = map[int]struct{}{}
-		renameChanges = map[int]Change{}
-		renameNodes   = []Entry{}
+		occurrences = map[int]struct{}{}
 
 		changes = []Change{}
 	)
@@ -288,11 +284,10 @@ func BuildChangeset(parsed, original []Entry) ([]Change, error) {
 			continue
 		}
 
-		renameNodes = append(renameNodes, from)
-		renameChanges[from.ID] = Change{
+		changes = append(changes, Change{
 			From: from,
 			To:   &to,
-		}
+		})
 	}
 
 	// iterate original list and look for deletions
@@ -305,15 +300,11 @@ func BuildChangeset(parsed, original []Entry) ([]Change, error) {
 		}
 	}
 
-	// build the DAG for renames
-	graph := NewGraph(renameNodes)
-	graph.ComputeEdges()
-	entriesOrdered, ok := graph.OutputChanges()
+	// build a DAG
+	graph := NewGraph(changes)
+	changes, ok := graph.OutputChanges()
 	if !ok {
 		return nil, fmt.Errorf("circular dependancy")
-	}
-	for _, e := range entriesOrdered {
-		changes = append(changes, renameChanges[e.ID])
 	}
 
 	return changes, nil

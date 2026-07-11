@@ -6,31 +6,35 @@ import (
 
 // K is the the key used to reference node V
 type Graph struct {
-	nodes    map[int]Entry
+	nodes    map[int]Change
 	edges    map[int][]int
 	indegree map[int]int
 }
 
-func NewGraph(nodes []Entry) *Graph {
+func NewGraph(nodes []Change) *Graph {
 	var (
-		nodeMap  = map[int]Entry{}
+		nodeMap  = map[int]Change{}
 		indegree = map[int]int{}
 	)
 
 	// set defaults for the graph
 	for _, n := range nodes {
-		nodeMap[n.ID] = n
-		indegree[n.ID] = 0
+		nodeMap[n.ID()] = n
+		indegree[n.ID()] = 0
 	}
 
-	return &Graph{
+	g := &Graph{
 		nodes:    nodeMap,
 		edges:    map[int][]int{},
 		indegree: indegree,
 	}
+
+	g.computeEdges()
+
+	return g
 }
 
-func (g *Graph) ComputeEdges() {
+func (g *Graph) computeEdges() {
 	// reset edges
 	g.reset()
 
@@ -38,36 +42,23 @@ func (g *Graph) ComputeEdges() {
 		// look at each node and check to see if
 		// any node depends on it to resolve
 	DEPS_LOOP:
-		for depID, prospect := range g.nodes {
-			// can't depend on it self
-			if depID == ID {
-				continue DEPS_LOOP
-			}
-
-			// cheap check to see if the node is possibly a dependancy
-			// (meaning that the dependancy entry is nested inside node)
-			if !strings.HasPrefix(prospect.Path, node.Path) {
-				continue DEPS_LOOP
-			}
-
-			// count number of slashes. if they are equal, it means that
-			// that the entries are siblings, and don't depend on eachother.
-			if strings.Count(node.Path, "/") == strings.Count(prospect.Path, "/") {
+		for prospectID, prospect := range g.nodes {
+			if !g.isDependant(node, prospect) {
 				continue DEPS_LOOP
 			}
 
 			// pretty sure that the prospect is a dependancy
-			g.edges[prospect.ID] = append(g.edges[prospect.ID], node.ID)
-			g.indegree[node.ID] += 1
+			g.edges[prospectID] = append(g.edges[prospectID], ID)
+			g.indegree[ID] += 1
 		}
 	}
 }
 
 // returns true if the graph is acyclic
-func (g *Graph) OutputChanges() ([]Entry, bool) {
+func (g *Graph) OutputChanges() ([]Change, bool) {
 	var (
-		queue = []Entry{}
-		out   = []Entry{}
+		queue = []Change{}
+		out   = []Change{}
 	)
 
 	// build queue of free nodes
@@ -95,7 +86,7 @@ func (g *Graph) OutputChanges() ([]Entry, bool) {
 
 		out = append(out, node)
 
-		for _, dependantID := range g.edges[node.ID] {
+		for _, dependantID := range g.edges[node.ID()] {
 			// from node to its dependants
 			g.indegree[dependantID]--
 
@@ -111,10 +102,31 @@ func (g *Graph) OutputChanges() ([]Entry, bool) {
 	return out, isAsyclic
 }
 
+func (g *Graph) isDependant(node, dependancy Change) bool {
+	// can't depend on it self
+	if node.ID() == dependancy.ID() {
+		return false
+	}
+
+	// cheap check to see if the node is possibly a dependancy
+	// (meaning that the dependancy entry is nested inside node)
+	if !strings.HasPrefix(dependancy.From.Path, node.From.Path) {
+		return false
+	}
+
+	// count number of slashes. if they are equal, it means that
+	// that the entries are siblings, and don't depend on eachother.
+	if strings.Count(node.From.Path, "/") == strings.Count(dependancy.From.Path, "/") {
+		return false
+	}
+
+	return true
+}
+
 func (g *Graph) reset() {
 	// set defaults for the graph
 	for _, n := range g.nodes {
-		g.indegree[n.ID] = 0
+		g.indegree[n.ID()] = 0
 	}
 	g.edges = map[int][]int{}
 }
