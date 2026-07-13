@@ -35,7 +35,6 @@ func NewGraph(nodes []Change) *Graph {
 }
 
 func (g *Graph) computeEdges() {
-
 	for ID, node := range g.nodes {
 		// look at each node and check to see if
 		// any node depends on it to resolve

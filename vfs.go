@@ -35,13 +35,16 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/spf13/afero"
 )
 
 func main() {
 	flags := NewFlags()
 	flags.Parse()
 
-	root := os.DirFS(".")
+	root := afero.NewOsFs()
+	// root := os.DirFS(".")
 
 	if flags.Help {
 		_, _ = fmt.Fprint(os.Stdout, help())
@@ -58,7 +61,7 @@ func main() {
 // 2. create tmp file and output [id file]
 // 3. parse updated file and validate
 // 4. execute changes
-func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
+func Run(flags Flags, root afero.Fs, in io.Reader, out io.Writer) error {
 	entries, err := BuildEntries(flags, root)
 	if err != nil {
 		return err
@@ -77,12 +80,17 @@ func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	err = ValidatedParsed(parsed, entries)
+	err = ValidatedParsed(parsed, entries, flags.Force)
 	if err != nil {
 		return err
 	}
 
 	changes, err := BuildChangeset(parsed, entries)
+	if err != nil {
+		return err
+	}
+
+	err = ExecuteChangeset(root, changes)
 	if err != nil {
 		return err
 	}
@@ -95,7 +103,7 @@ func Run(flags Flags, root fs.FS, in io.Reader, out io.Writer) error {
 // ORDER IS IMPORTANT.
 //
 // The index of an item is its ID.
-func BuildEntries(flags Flags, root fs.FS) ([]Entry, error) {
+func BuildEntries(flags Flags, root afero.Fs) ([]Entry, error) {
 	var (
 		entries []Entry
 		err     error
@@ -235,7 +243,7 @@ func indexOfLineComment(line string) int {
 }
 
 // run validations on the parsed list of entries
-func ValidatedParsed(parsed, original []Entry) error {
+func ValidatedParsed(parsed, original []Entry, allowDeletes bool) error {
 	errs := []error{}
 
 	occurences := map[int]struct{}{}
@@ -302,13 +310,32 @@ func BuildChangeset(parsed, original []Entry) ([]Change, error) {
 	return changes, nil
 }
 
-// TODO: add tests
-func ExecuteChangeset() error {
+// NOTE: [fs.FS] does not define any remove methods,
+// meaning that we aren't able to pass an [fs.FS] to test this.
+func ExecuteChangeset(root afero.Fs, changes []Change) error {
+	for _, change := range changes {
+		changeIsDelete := change.To == nil
+
+		if changeIsDelete {
+			// remove
+			err := os.Remove(change.From.Path)
+			if err != nil {
+				return err
+			}
+		} else {
+			// move/rename
+			err := root.Rename(change.From.Path, change.To.Path)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
-func readDir(root fs.FS) ([]Entry, error) {
-	e, err := fs.ReadDir(root, ".")
+func readDir(root afero.Fs) ([]Entry, error) {
+	e, err := afero.ReadDir(root, ".")
 	if err != nil {
 		return nil, err
 	}
@@ -323,12 +350,13 @@ func readDir(root fs.FS) ([]Entry, error) {
 	return entries, nil
 }
 
-func readDirRecursive(root fs.FS) ([]Entry, error) {
+func readDirRecursive(root afero.Fs) ([]Entry, error) {
 	var (
 		entries   = []Entry{}
 		linecount = -1
 	)
-	err := fs.WalkDir(root, ".", func(path string, d fs.DirEntry, err error) error {
+
+	err := afero.Walk(root, ".", func(path string, info fs.FileInfo, err error) error {
 		if path == "." {
 			return nil
 		}

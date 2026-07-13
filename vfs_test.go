@@ -4,34 +4,33 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
+	"os"
 	"slices"
 	"strings"
 	"testing"
-	"testing/fstest"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
 
-func fsSimple() *fstest.MapFS {
-	return &fstest.MapFS{
-		"a": &fstest.MapFile{},
-		"b": &fstest.MapFile{Mode: fs.ModeDir},
-	}
+func fsSimple() afero.Fs {
+	root := afero.NewMemMapFs()
+	_ = afero.WriteFile(root, "a", nil, 0)
+	_ = afero.WriteFile(root, "b", nil, fs.ModeDir)
+	return root
 }
 
-func fsDeep() *fstest.MapFS {
-	return &fstest.MapFS{
-		"a1":       &fstest.MapFile{Mode: fs.ModeDir},
-		"a1/b1":    &fstest.MapFile{Mode: fs.ModeDir},
-		"a1/b1/c1": &fstest.MapFile{Mode: fs.ModeDir},
-	}
+func fsDeep() afero.Fs {
+	root := afero.NewMemMapFs()
+	_ = root.MkdirAll("a1/b1/c1", os.ModeDir)
+	return root
 }
 
 func TestBuildEntries(t *testing.T) {
 	tests := []struct {
 		name    string
 		flags   Flags
-		filesys fs.FS
+		filesys afero.Fs
 		expect  []Entry
 	}{
 		{
@@ -236,7 +235,7 @@ func TestPipeline(t *testing.T) {
 			checkErr(t, tt.expectError, err)
 
 			// test validation
-			err = ValidatedParsed(parsedEntries, tt.from)
+			err = ValidatedParsed(parsedEntries, tt.from, true)
 			checkErr(t, tt.expectError, err)
 
 			// test building changeset.
