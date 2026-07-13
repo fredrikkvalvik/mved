@@ -1,58 +1,123 @@
 package main
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildChangeset(t *testing.T) {
+// NOTE: each test must only contain ONE valid output. This is the simplest way
+// to to test, and doing so allows us better testing by running each test
+// with every perumutation of the input proving that the order in doesn't matter.
+func TestDependancyResolution(t *testing.T) {
 	tests := []struct {
-		name                 string
-		inOriginal, inParsed []Entry
-		expect               []Change
+		name   string
+		in     []Change
+		expect []Change
 	}{
 		{
-			name:   "empty",
-			expect: []Change{},
-		},
-
-		{
-			name:       "one change",
-			inOriginal: createTestEntries("a"),
-			inParsed:   createTestEntries("b"),
-			expect: []Change{
-				{
-					Entry{0, "a"},
-					&Entry{0, "b"},
-				},
-			},
+			name:   "single rename",
+			in:     createTestChanges("a", "b"),
+			expect: createTestChanges("a", "b"),
 		},
 		{
-			name:       "one delete",
-			inOriginal: createTestEntries("a"),
-			inParsed:   createTestEntries(""),
-			expect: []Change{
-				{
-					Entry{0, "a"},
-					nil,
-				},
-			},
+			name:   "single delete",
+			in:     createTestChanges("a", ""),
+			expect: createTestChanges("a", ""),
+		},
+		{
+			name: "dependant rename",
+			in: createChanges(
+				"0;a;b",
+				"1;a/a1;x",
+			),
+			expect: createChanges(
+				"1;a/a1;x",
+				"0;a;b",
+			),
+		},
+		{
+			name: "dependant delete",
+			in: createChanges(
+				"0;a;b",
+				"1;a/a1",
+			),
+			expect: createChanges(
+				"1;a/a1",
+				"0;a;b",
+			),
+		},
+		{
+			name: "dependant delete and rename",
+			in: createChanges(
+				"0;a;b",
+				"1;a/a1",
+				"2;a/a1/a2;y",
+			),
+			expect: createChanges(
+				"2; a/a1/a2; y",
+				"1; a/a1",
+				"0; a; b",
+			),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Changeset only has some ordering guarantees:
-			changes, err := BuildChangeset(tt.inParsed, tt.inOriginal)
+			// TODO: implement loop to test all input permutations
 
-			require.NoError(t, err)
+			g := NewGraph(tt.in)
+			changes, ok := g.OutputChanges()
+			if !ok {
+				t.Fatalf("output has a circular dependancy")
+			}
 
 			require.Equal(t, tt.expect, changes)
 		})
 	}
 }
 
-func TestParentResolution(t *testing.T) {
+// test-helper for creating []Change in an easier, more readable way
+// string format is: `id;from;to`
+//
+// Omit the to to signal a delete.
+func createChanges(s ...string) []Change {
+	changes := make([]Change, len(s))
 
+	for idx, change := range s {
+		parts := strings.Split(change, ";")
+
+		var (
+			id              int
+			idStr, from, to string
+			err             error
+		)
+		switch len(parts) {
+		case 2:
+			idStr = strings.TrimSpace(parts[0])
+			from = strings.TrimSpace(parts[1])
+			id, err = strconv.Atoi(idStr)
+		case 3:
+			idStr = strings.TrimSpace(parts[0])
+			from = strings.TrimSpace(parts[1])
+			to = strings.TrimSpace(parts[2])
+			id, err = strconv.Atoi(idStr)
+		default:
+			panic("invalid number of parts for a line")
+		}
+		if err != nil {
+			panic("invalid id. must be an integer")
+		}
+
+		c := Change{
+			From: Entry{id, from},
+		}
+		if to != "" {
+			c.To = &Entry{id, to}
+		}
+		changes[idx] = c
+	}
+	return changes
 }

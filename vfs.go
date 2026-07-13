@@ -299,14 +299,6 @@ func BuildChangeset(parsed, original []Entry) ([]Change, error) {
 			})
 		}
 	}
-
-	// build a DAG
-	graph := NewGraph(changes)
-	changes, ok := graph.OutputChanges()
-	if !ok {
-		return nil, fmt.Errorf("circular dependancy")
-	}
-
 	return changes, nil
 }
 

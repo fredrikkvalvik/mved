@@ -35,8 +35,6 @@ func NewGraph(nodes []Change) *Graph {
 }
 
 func (g *Graph) computeEdges() {
-	// reset edges
-	g.reset()
 
 	for ID, node := range g.nodes {
 		// look at each node and check to see if
@@ -121,12 +119,4 @@ func (g *Graph) isDependant(node, dependancy Change) bool {
 	}
 
 	return true
-}
-
-func (g *Graph) reset() {
-	// set defaults for the graph
-	for _, n := range g.nodes {
-		g.indegree[n.ID()] = 0
-	}
-	g.edges = map[int][]int{}
 }
