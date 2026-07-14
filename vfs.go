@@ -32,6 +32,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -194,13 +195,8 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 			continue
 		}
 
-		// validate the path to make sure it is valid
-		if !fs.ValidPath(entryPath) {
-			errs = append(errs, fmt.Errorf("[%d] the entry path is invalid", linecount))
-			continue
-		}
 		// normalize the path to pick up different text that should point to the same path
-		entryPath = path.Clean(entryPath)
+		entryPath = filepath.Clean(entryPath)
 
 		// we now have valid id and path
 		entries = append(entries, Entry{ID: id, Path: entryPath})
