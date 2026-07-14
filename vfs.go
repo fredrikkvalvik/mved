@@ -44,24 +44,19 @@ func main() {
 	flags.Parse()
 
 	root := afero.NewOsFs()
-	// root := os.DirFS(".")
 
 	if flags.Help {
 		_, _ = fmt.Fprint(os.Stdout, help())
 		os.Exit(0)
 	}
 
-	if err := Run(flags, root, os.Stdin, os.Stdout); err != nil {
+	if err := Run(flags, root); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-// 1. read entries
-// 2. create tmp file and output [id file]
-// 3. parse updated file and validate
-// 4. execute changes
-func Run(flags Flags, root afero.Fs, in io.Reader, out io.Writer) error {
+func Run(flags Flags, root afero.Fs) error {
 	entries, err := BuildEntries(flags, root)
 	if err != nil {
 		return err
@@ -70,7 +65,7 @@ func Run(flags Flags, root afero.Fs, in io.Reader, out io.Writer) error {
 	var entriesBuffer bytes.Buffer
 	_, _ = fmt.Fprintln(&entriesBuffer, printEntries(entries))
 
-	editedEntriesBuffer, err := editEntries(&entriesBuffer, in, out)
+	editedEntriesBuffer, err := editEntries(&entriesBuffer)
 	if err != nil {
 		return err
 	}
@@ -95,8 +90,6 @@ func Run(flags Flags, root afero.Fs, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	fmt.Println(changes)
-
 	return nil
 }
 
@@ -119,17 +112,20 @@ func BuildEntries(flags Flags, root afero.Fs) ([]Entry, error) {
 
 // Opens the editor and allows the user to change
 // the entries list.
-func editEntries(buf io.Reader, stdin io.Reader, stdout io.Writer) (io.Reader, error) {
+func editEntries(buf io.Reader) (io.Reader, error) {
 	f, _ := os.CreateTemp("", "")
-	defer os.Remove(f.Name())
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+
 	_, err := io.Copy(f, buf)
 	if err != nil {
 		return nil, err
 	}
 
 	cmd := exec.Command(os.ExpandEnv("$EDITOR"), f.Name())
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
 
 	if err := cmd.Run(); err != nil {
 		return nil, err
@@ -247,6 +243,7 @@ func ValidatedParsed(parsed, original []Entry, allowDeletes bool) error {
 	errs := []error{}
 
 	occurences := map[int]struct{}{}
+	duplicates := map[string]int{}
 
 	for _, entry := range parsed {
 		// make sure the ID is somewhere within the allowed boundary
@@ -259,6 +256,12 @@ func ValidatedParsed(parsed, original []Entry, allowDeletes bool) error {
 			occurences[entry.ID] = struct{}{}
 		} else {
 			errs = append(errs, fmt.Errorf("[%d] multiple occurences. only one is allowed", entry.ID))
+		}
+
+		if first, found := duplicates[entry.Path]; !found {
+			duplicates[entry.Path] = entry.ID
+		} else {
+			errs = append(errs, fmt.Errorf("[%d] duplicate path: \"%s\" of [%d]", entry.ID, entry.Path, first))
 		}
 	}
 
@@ -318,16 +321,36 @@ func ExecuteChangeset(root afero.Fs, changes []Change) error {
 
 		if changeIsDelete {
 			// remove
-			err := os.Remove(change.From.Path)
+			err := root.RemoveAll(change.From.Path)
 			if err != nil {
 				return err
 			}
 		} else {
-			// move/rename
-			err := root.Rename(change.From.Path, change.To.Path)
+			err := ensureParentDirExists(change.To.Path, root)
 			if err != nil {
 				return err
 			}
+			// move/rename
+			err = root.Rename(change.From.Path, change.To.Path)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func ensureParentDirExists(target string, root afero.Fs) error {
+	targetParentPath := path.Dir(target)
+	parentExists, err := afero.DirExists(root, targetParentPath)
+	if err != nil {
+		return err
+	}
+	if !parentExists {
+		err := root.MkdirAll(targetParentPath, 0755)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -401,7 +424,7 @@ we track changes to a file.
 
 - To move an entry: change the path of the file/dir.
 - To rename an entry: change the name of the file/dir.
-- To delete an entry: delete the line.
+- To delete an entry: delete the line (or comment out with "#").
 
 Supported flags:
 -h: print help text
