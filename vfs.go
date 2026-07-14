@@ -51,14 +51,24 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := Run(flags, root); err != nil {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
+	if err := Run(flags, root, cwd); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func Run(flags Flags, root afero.Fs) error {
-	entries, err := BuildEntries(flags, root)
+func Run(flags Flags, root afero.Fs, cwd string) error {
+	pathPrefix := ""
+	if flags.Abs {
+		pathPrefix = cwd
+	}
+	entries, err := BuildEntries(flags, root, pathPrefix)
 	if err != nil {
 		return err
 	}
@@ -97,15 +107,15 @@ func Run(flags Flags, root afero.Fs) error {
 // ORDER IS IMPORTANT.
 //
 // The index of an item is its ID.
-func BuildEntries(flags Flags, root afero.Fs) ([]Entry, error) {
+func BuildEntries(flags Flags, root afero.Fs, pathPrefix string) ([]Entry, error) {
 	var (
 		entries []Entry
 		err     error
 	)
 	if flags.Recursive {
-		entries, err = readDirRecursive(root)
+		entries, err = readDirRecursive(root, pathPrefix)
 	} else {
-		entries, err = readDir(root)
+		entries, err = readDir(root, pathPrefix)
 	}
 
 	return entries, err
@@ -353,7 +363,7 @@ func ensureParentDirExists(target string, root afero.Fs) error {
 	return nil
 }
 
-func readDir(root afero.Fs) ([]Entry, error) {
+func readDir(root afero.Fs, pathPrefix string) ([]Entry, error) {
 	e, err := afero.ReadDir(root, ".")
 	if err != nil {
 		return nil, err
@@ -363,13 +373,13 @@ func readDir(root afero.Fs) ([]Entry, error) {
 	for idx := range e {
 		entries[idx] = Entry{
 			ID:   idx,
-			Path: e[idx].Name(),
+			Path: filepath.Join(pathPrefix, e[idx].Name()),
 		}
 	}
 	return entries, nil
 }
 
-func readDirRecursive(root afero.Fs) ([]Entry, error) {
+func readDirRecursive(root afero.Fs, pathPrefix string) ([]Entry, error) {
 	var (
 		entries   = []Entry{}
 		linecount = -1
@@ -382,7 +392,7 @@ func readDirRecursive(root afero.Fs) ([]Entry, error) {
 		linecount += 1
 		entries = append(entries, Entry{
 			ID:   linecount,
-			Path: path,
+			Path: filepath.Join(pathPrefix, path),
 		})
 		return nil
 	})

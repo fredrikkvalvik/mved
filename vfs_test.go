@@ -61,7 +61,7 @@ func TestBuildEntries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entries, err := BuildEntries(tt.flags, tt.filesys)
+			entries, err := BuildEntries(tt.flags, tt.filesys, "")
 			require.NoError(t, err)
 			require.Equal(t, tt.expect, entries, "lists items must be equal")
 		})
