@@ -1,25 +1,4 @@
-// vfs is a visual file system manager. The idea is to be able to
-//   - move files/dirs
-//   - rename files/dirs
-//   - delete files/dirs
-//
-// All of this is done using $EDTIOR.
-//
-// The way it works is by running the program in a
-// given directory, the editor opens with a list
-// of files, where each file has a number at the start of
-// each line. The number is the ID of a given files and is how
-// we track changes to a file.
-//
-//   - To move an entry: change the path of the file/dir.
-//   - To rename an entry: change the name of the file/dir.
-//   - To delete an entry: delete the line.
-//
-// Supported flags:
-//   - -h: print help text
-//   - -a: use absolute paths instead of relative.
-//   - -r: recursively list files. default is is only current dir
-//   - -f: must be set to be able to delete files
+// mved is a tool for renaming/moving/deleting files and direcories using $EDITOR.
 package main
 
 import (
@@ -420,9 +399,9 @@ func printEntries(e []Entry) string {
 }
 
 func help() string {
-	return `vfs is a visual file system manager.
+	return `mved is a tool for renaming/moving/deleting files and direcories using $EDITOR.
 
-vfs is able to:
+mved is able to:
 - move files/dirs
 - rename files/dirs
 - delete files/dirs

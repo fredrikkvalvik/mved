@@ -1,4 +1,4 @@
-module github.com/fredrikkvalvik/vfs
+module github.com/fredrikkvalvik/mved
 
 go 1.26.4
 
