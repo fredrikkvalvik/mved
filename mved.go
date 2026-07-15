@@ -80,7 +80,6 @@ func Run(flags Flags, root afero.Fs, cwd string) error {
 	if !ok {
 		return fmt.Errorf("graph is not acyclic")
 	}
-	fmt.Println(graph)
 
 	err = ExecuteChangeset(root, changes)
 	if err != nil {
