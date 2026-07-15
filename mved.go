@@ -92,6 +92,8 @@ func Run(flags Flags, root afero.Fs, cwd string) error {
 // ORDER IS IMPORTANT.
 //
 // The index of an item is its ID.
+//
+// TODO: implement logic for pointing to another dir than "." for listing/writing
 func BuildEntries(flags Flags, root afero.Fs, pathPrefix string) ([]Entry, error) {
 	var (
 		entries []Entry
