@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -105,6 +106,13 @@ func (g *Graph) isDependant(node, dependancy Change) bool {
 		return false
 	}
 
+	if node.To != nil {
+		// if we our destination is dependant on dependancy moving first
+		if node.To.IsEqual(dependancy.From) {
+			return true
+		}
+	}
+
 	// cheap check to see if the node is possibly a dependancy
 	// (meaning that the dependancy entry is nested inside node)
 	if !strings.HasPrefix(dependancy.From.Path, node.From.Path) {
@@ -118,4 +126,20 @@ func (g *Graph) isDependant(node, dependancy Change) bool {
 	}
 
 	return true
+}
+
+func (g *Graph) String() string {
+	var b strings.Builder
+
+	for _, node := range g.nodes {
+
+		ids := make([]string, len(g.edges[node.ID()]))
+		for idx, id := range g.edges[node.ID()] {
+			ids[idx] = fmt.Sprint(id)
+		}
+		deps := strings.Join(ids, " ")
+		fmt.Fprintf(&b, "(%d) -> [%s]\n", node.ID(), deps)
+	}
+
+	return b.String()
 }

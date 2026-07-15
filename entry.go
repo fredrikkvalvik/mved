@@ -1,6 +1,8 @@
 package main
 
-import "path"
+import (
+	"path/filepath"
+)
 
 type Entry struct {
 	ID   int
@@ -8,7 +10,7 @@ type Entry struct {
 }
 
 func (e Entry) Name() string {
-	return path.Base(e.Path)
+	return filepath.Base(e.Path)
 }
 
 func (e Entry) IsEqual(toCompare Entry) bool {
@@ -16,7 +18,7 @@ func (e Entry) IsEqual(toCompare Entry) bool {
 }
 
 func EntryIsEqual(a, b Entry) bool {
-	return path.Clean(a.Path) == path.Clean(b.Path)
+	return filepath.Clean(a.Path) == filepath.Clean(b.Path)
 }
 
 // A [Change] defines a transition. From if the original state of

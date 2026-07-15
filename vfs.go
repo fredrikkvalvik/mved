@@ -96,6 +96,13 @@ func Run(flags Flags, root afero.Fs, cwd string) error {
 		return err
 	}
 
+	graph := NewGraph(changes)
+	changes, ok := graph.OutputChanges()
+	if !ok {
+		return fmt.Errorf("graph is not acyclic")
+	}
+	fmt.Println(graph)
+
 	err = ExecuteChangeset(root, changes)
 	if err != nil {
 		return err
@@ -415,12 +422,12 @@ func printEntries(e []Entry) string {
 func help() string {
 	return `vfs is a visual file system manager.
 
-The idea is to be able to:
+vfs is able to:
 - move files/dirs
 - rename files/dirs
 - delete files/dirs
 
-All of this is done using $EDTIOR.
+All of this is controlled using $EDTIOR.
 
 The way it works is by running the program in a
 given directory, the editor opens with a list

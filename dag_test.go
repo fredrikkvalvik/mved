@@ -62,6 +62,17 @@ func TestDependancyResolution(t *testing.T) {
 				"0; a; b",
 			),
 		},
+		{
+			name: "rename to a file being deleted",
+			in: createChanges(
+				"0;a",
+				"1;b;a",
+			),
+			expect: createChanges(
+				"1;a",
+				"0;b;a",
+			),
+		},
 	}
 
 	for _, tt := range tests {
