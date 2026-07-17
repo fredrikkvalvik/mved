@@ -11,15 +11,19 @@ type Flags struct {
 	Abs       bool
 	Help      bool
 	Recursive bool
+	Glob      string
 }
 
 func NewFlags() Flags {
-	return Flags{
+	f := Flags{
 		Force:     false,
 		Abs:       false,
 		Help:      false,
 		Recursive: false,
+		Glob:      "",
 	}
+	f.Parse()
+	return f
 }
 
 func (f *Flags) Parse() {
@@ -31,4 +35,5 @@ func (f *Flags) Parse() {
 		_, _ = fmt.Fprint(os.Stdout, help())
 	}
 	flag.Parse()
+	f.Glob = flag.Arg(0)
 }

@@ -21,8 +21,6 @@ import (
 
 func main() {
 	flags := NewFlags()
-	flags.Parse()
-
 	root := afero.NewOsFs()
 
 	if flags.Help {
@@ -255,6 +253,15 @@ func ValidatedParsed(parsed, original []Entry, allowDeletes bool) error {
 			duplicates[entry.Path] = entry.ID
 		} else {
 			errs = append(errs, fmt.Errorf("[%d] duplicate path: \"%s\" of [%d]", entry.ID, entry.Path, first))
+		}
+	}
+
+	if !allowDeletes {
+		for id := range original {
+			_, found := occurences[id]
+			if !found {
+				errs = append(errs, fmt.Errorf("[%d] delete without force flag is not allowed", id))
+			}
 		}
 	}
 
