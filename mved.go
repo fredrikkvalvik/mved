@@ -19,6 +19,11 @@ import (
 	"github.com/spf13/afero"
 )
 
+var ignoredEntries = NewSet(
+	".git",
+	"node_modules",
+)
+
 func main() {
 	flags := NewFlags()
 	root := afero.NewOsFs()
@@ -98,12 +103,16 @@ func BuildEntries(flags Flags, root afero.Fs, pathPrefix string) ([]Entry, error
 		err     error
 	)
 	if flags.Recursive {
-		entries, err = readDirRecursive(root, pathPrefix)
+		entries, err = readDirRecursive(root, pathPrefix, flags.Glob)
 	} else {
-		entries, err = readDir(root, pathPrefix)
+		entries, err = readDir(root, pathPrefix, flags.Glob)
 	}
 
 	return entries, err
+}
+
+func isIgnoredEntry(ignored *Set[string], entry string) bool {
+	return ignored.Has(entry)
 }
 
 // Opens the editor and allows the user to change
@@ -357,39 +366,73 @@ func ensureParentDirExists(target string, root afero.Fs) error {
 	return nil
 }
 
-func readDir(root afero.Fs, pathPrefix string) ([]Entry, error) {
+func readDir(root afero.Fs, pathPrefix string, glob string) ([]Entry, error) {
 	e, err := afero.ReadDir(root, ".")
 	if err != nil {
 		return nil, err
 	}
+	// glob is empty, replace it with wildcard to allow all entries
+	if glob == "" {
+		glob = "*"
+	}
 
-	entries := make([]Entry, len(e))
-	for idx := range e {
-		entries[idx] = Entry{
-			ID:   idx,
-			Path: filepath.Join(pathPrefix, e[idx].Name()),
+	// Logic flows as follows:
+	//	1. create a list of entries.
+	//	2. check to see if the current file matches glob.
+	//	3. on match, append to entries slice using the pre-append length of entries as ID
+
+	var entries []Entry
+	for _, entry := range e {
+		// skip ignored entries
+		if isIgnoredEntry(ignoredEntries, entry.Name()) {
+			continue
+		}
+
+		if ok, err := filepath.Match(glob, entry.Name()); err != nil {
+			return nil, err
+		} else if ok {
+			entries = append(entries, Entry{
+				ID:   len(entries),
+				Path: filepath.Join(pathPrefix, entry.Name()),
+			})
 		}
 	}
 	return entries, nil
 }
 
-func readDirRecursive(root afero.Fs, pathPrefix string) ([]Entry, error) {
+func readDirRecursive(root afero.Fs, pathPrefix string, glob string) ([]Entry, error) {
 	var (
 		entries   = []Entry{}
 		linecount = -1
 	)
 
+	// glob is empty, replace it with wildcard to allow all entries
+	if glob == "" {
+		glob = "*"
+	}
+
 	err := afero.Walk(root, ".", func(path string, info fs.FileInfo, err error) error {
 		if path == "." {
 			return nil
 		}
-		linecount += 1
-		entries = append(entries, Entry{
-			ID:   linecount,
-			Path: filepath.Join(pathPrefix, path),
-		})
+
+		// skip ignored entries
+		if isIgnoredEntry(ignoredEntries, info.Name()) {
+			return fs.SkipDir
+		}
+
+		if match, err := filepath.Match(glob, info.Name()); err != nil {
+			return err
+		} else if match {
+			linecount += 1
+			entries = append(entries, Entry{
+				ID:   linecount,
+				Path: filepath.Join(pathPrefix, path),
+			})
+		}
 		return nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
