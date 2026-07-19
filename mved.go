@@ -19,11 +19,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-var ignoredEntries = NewSet(
-	".git",
-	"node_modules",
-)
-
 func main() {
 	flags := NewFlags()
 	root := afero.NewOsFs()
@@ -33,7 +28,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	ctx, err := NewCtx(flags, root)
+	ctx, err := NewCtx(flags, root, NewSet(
+		".git",
+		"node_modules",
+	))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -381,7 +379,7 @@ func readDir(ctx MvedContext) ([]Entry, error) {
 	var entries []Entry
 	for _, entry := range e {
 		// skip ignored entries
-		if isIgnoredEntry(ignoredEntries, entry.Name()) {
+		if ctx.ShouldIgnoreEntry(entry.Name()) {
 			continue
 		}
 
@@ -408,11 +406,11 @@ func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 		}
 
 		// skip ignored entries
-		if isIgnoredEntry(ignoredEntries, info.Name()) {
+		if ctx.ShouldIgnoreEntry(info.Name()) {
 			return fs.SkipDir
 		}
 
-		if match := ctx.MatchGlob(info.Name()); match {
+		if match := ctx.MatchGlob(path); match {
 			linecount += 1
 			entries = append(entries, Entry{
 				ID:   linecount,

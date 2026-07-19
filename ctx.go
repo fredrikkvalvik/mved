@@ -25,24 +25,27 @@ type MvedContext interface {
 
 	MatchGlob(p string) bool
 	ResolvePath(p string) string
+	ShouldIgnoreEntry(p string) bool
 }
 
 // Ctx hold the main execution context and is responsible
 // for handling execution details that should not be direct
 // concerns
 type Ctx struct {
-	flags Flags
-	cwd   string
-	fs    afero.Fs
+	flags          Flags
+	cwd            string
+	fs             afero.Fs
+	ignoredEntries *Set[string]
 }
 
-func NewCtx(f Flags, root afero.Fs) (*Ctx, error) {
+func NewCtx(f Flags, root afero.Fs, ignoredEntries *Set[string]) (*Ctx, error) {
 	cwd, _ := os.Getwd()
 
 	ctx := &Ctx{
-		flags: f,
-		cwd:   cwd,
-		fs:    root,
+		flags:          f,
+		cwd:            cwd,
+		fs:             root,
+		ignoredEntries: ignoredEntries,
 	}
 
 	_, err := filepath.Match(ctx.flags.Glob, "")
@@ -80,9 +83,13 @@ func (c *Ctx) MatchGlob(p string) bool {
 	return true
 }
 
+func (c *Ctx) ShouldIgnoreEntry(p string) bool {
+	return false
+}
+
 func (c *Ctx) ResolvePath(p string) string {
 	if c.flags.Abs {
-		return filepath.Join(c.cwd, p)
+		return filepath.Clean(filepath.Join(c.cwd, p))
 	}
 	return p
 }
