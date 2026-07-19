@@ -33,29 +33,30 @@ func main() {
 		os.Exit(0)
 	}
 
-	cwd, err := os.Getwd()
+	ctx, err := NewCtx(flags, root)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
-	if err := Run(flags, root, cwd); err != nil {
+	if err := Run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func Run(flags Flags, root afero.Fs, cwd string) error {
-	pathPrefix := ""
-	if flags.Abs {
-		pathPrefix = cwd
-	}
-	entries, err := BuildEntries(flags, root, pathPrefix)
+func Run(ctx MvedContext) error {
+	entries, err := BuildEntries(ctx)
 	if err != nil {
 		return err
 	}
 
 	var entriesBuffer bytes.Buffer
+	fmt.Fprintln(&entriesBuffer, "# edit a line to rename an entry")
+	fmt.Fprintln(&entriesBuffer, "# remove/comment out a line to delete an entry")
+	fmt.Fprintln(&entriesBuffer, "# the number at the start is the file ID. It is used to detmermine what to do with the entry")
+	fmt.Fprintln(&entriesBuffer, "")
+
 	_, _ = fmt.Fprintln(&entriesBuffer, printEntries(entries))
 
 	editedEntriesBuffer, err := editEntries(&entriesBuffer)
@@ -68,7 +69,7 @@ func Run(flags Flags, root afero.Fs, cwd string) error {
 		return err
 	}
 
-	err = ValidatedParsed(parsed, entries, flags.Force)
+	err = ValidatedParsed(parsed, entries, ctx.Force())
 	if err != nil {
 		return err
 	}
@@ -84,7 +85,7 @@ func Run(flags Flags, root afero.Fs, cwd string) error {
 		return fmt.Errorf("graph is not acyclic")
 	}
 
-	err = ExecuteChangeset(root, changes)
+	err = ExecuteChangeset(ctx.FS(), changes)
 	if err != nil {
 		return err
 	}
@@ -97,15 +98,15 @@ func Run(flags Flags, root afero.Fs, cwd string) error {
 // The index of an item is its ID.
 //
 // TODO: implement logic for pointing to another dir than "." for listing/writing
-func BuildEntries(flags Flags, root afero.Fs, pathPrefix string) ([]Entry, error) {
+func BuildEntries(ctx MvedContext) ([]Entry, error) {
 	var (
 		entries []Entry
 		err     error
 	)
-	if flags.Recursive {
-		entries, err = readDirRecursive(root, pathPrefix, flags.Glob)
+	if ctx.Recursive() {
+		entries, err = readDirRecursive(ctx)
 	} else {
-		entries, err = readDir(root, pathPrefix, flags.Glob)
+		entries, err = readDir(ctx)
 	}
 
 	return entries, err
@@ -366,14 +367,10 @@ func ensureParentDirExists(target string, root afero.Fs) error {
 	return nil
 }
 
-func readDir(root afero.Fs, pathPrefix string, glob string) ([]Entry, error) {
-	e, err := afero.ReadDir(root, ".")
+func readDir(ctx MvedContext) ([]Entry, error) {
+	e, err := afero.ReadDir(ctx.FS(), ".")
 	if err != nil {
 		return nil, err
-	}
-	// glob is empty, replace it with wildcard to allow all entries
-	if glob == "" {
-		glob = "*"
 	}
 
 	// Logic flows as follows:
@@ -388,30 +385,24 @@ func readDir(root afero.Fs, pathPrefix string, glob string) ([]Entry, error) {
 			continue
 		}
 
-		if ok, err := filepath.Match(glob, entry.Name()); err != nil {
-			return nil, err
-		} else if ok {
+		if ok := ctx.MatchGlob(entry.Name()); ok {
 			entries = append(entries, Entry{
 				ID:   len(entries),
-				Path: filepath.Join(pathPrefix, entry.Name()),
+				Path: ctx.ResolvePath(entry.Name()),
 			})
 		}
 	}
+
 	return entries, nil
 }
 
-func readDirRecursive(root afero.Fs, pathPrefix string, glob string) ([]Entry, error) {
+func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 	var (
 		entries   = []Entry{}
 		linecount = -1
 	)
 
-	// glob is empty, replace it with wildcard to allow all entries
-	if glob == "" {
-		glob = "*"
-	}
-
-	err := afero.Walk(root, ".", func(path string, info fs.FileInfo, err error) error {
+	err := afero.Walk(ctx.FS(), ".", func(path string, info fs.FileInfo, err error) error {
 		if path == "." {
 			return nil
 		}
@@ -421,13 +412,11 @@ func readDirRecursive(root afero.Fs, pathPrefix string, glob string) ([]Entry, e
 			return fs.SkipDir
 		}
 
-		if match, err := filepath.Match(glob, info.Name()); err != nil {
-			return err
-		} else if match {
+		if match := ctx.MatchGlob(info.Name()); match {
 			linecount += 1
 			entries = append(entries, Entry{
 				ID:   linecount,
-				Path: filepath.Join(pathPrefix, path),
+				Path: ctx.ResolvePath(path),
 			})
 		}
 		return nil
