@@ -65,12 +65,12 @@ func TestDependancyResolution(t *testing.T) {
 		{
 			name: "rename to a file being deleted",
 			in: createChanges(
-				"0;a",
 				"1;b;a",
+				"0;a",
 			),
 			expect: createChanges(
-				"1;a",
-				"0;b;a",
+				"0;a",
+				"1;b;a",
 			),
 		},
 	}
