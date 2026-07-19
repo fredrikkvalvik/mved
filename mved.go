@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"unicode"
 
 	"github.com/spf13/afero"
@@ -108,10 +109,6 @@ func BuildEntries(ctx MvedContext) ([]Entry, error) {
 	}
 
 	return entries, err
-}
-
-func isIgnoredEntry(ignored *Set[string], entry string) bool {
-	return ignored.Has(entry)
 }
 
 // Opens the editor and allows the user to change
@@ -427,10 +424,18 @@ func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 }
 
 func printEntries(e []Entry) string {
-	var b strings.Builder
+	var b bytes.Buffer
+
+	w := tabwriter.NewWriter(&b, 0, 0, 1, ' ', 0)
 
 	for idx, entry := range e {
-		fmt.Fprintf(&b, "%d %s\n", idx, entry.Path)
+		_, _ = fmt.Fprintf(w, "%d\t%s\n", idx, entry.Path)
+	}
+
+	err := w.Flush()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	return b.String()

@@ -84,7 +84,7 @@ func (c *Ctx) MatchGlob(p string) bool {
 }
 
 func (c *Ctx) ShouldIgnoreEntry(p string) bool {
-	return false
+	return c.ignoredEntries.Has(p)
 }
 
 func (c *Ctx) ResolvePath(p string) string {
