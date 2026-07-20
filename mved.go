@@ -383,7 +383,7 @@ func readDir(ctx MvedContext) ([]Entry, error) {
 		if ok := ctx.MatchGlob(entry.Name()); ok {
 			entries = append(entries, Entry{
 				ID:   len(entries),
-				Path: ctx.ResolvePath(entry.Name()),
+				Path: ctx.ResolvePath(entry.Name(), entry),
 			})
 		}
 	}
@@ -409,10 +409,11 @@ func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 
 		if match := ctx.MatchGlob(path); match {
 			linecount += 1
-			entries = append(entries, Entry{
+			entry := Entry{
 				ID:   linecount,
-				Path: ctx.ResolvePath(path),
-			})
+				Path: ctx.ResolvePath(path, info),
+			}
+			entries = append(entries, entry)
 		}
 		return nil
 	})

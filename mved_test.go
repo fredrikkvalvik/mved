@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/fs"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -16,13 +14,13 @@ import (
 func fsSimple() afero.Fs {
 	root := afero.NewMemMapFs()
 	_ = afero.WriteFile(root, "a", nil, 0)
-	_ = afero.WriteFile(root, "b", nil, fs.ModeDir)
+	_ = afero.WriteFile(root, "b", nil, 0)
 	return root
 }
 
 func fsDeep() afero.Fs {
 	root := afero.NewMemMapFs()
-	_ = root.MkdirAll("a1/b1/c1", os.ModeDir)
+	_ = root.MkdirAll("a1/b1/c1", 0)
 	return root
 }
 
@@ -49,22 +47,19 @@ func TestBuildEntries(t *testing.T) {
 			name:    "nested flat",
 			flags:   Flags{Recursive: false},
 			filesys: fsDeep(),
-			expect:  createTestEntries("a1"),
+			expect:  createTestEntries("a1/"),
 		},
 		{
 			name:    "nested recursive",
 			flags:   Flags{Recursive: true},
 			filesys: fsDeep(),
-			expect:  createTestEntries("a1", "a1/b1", "a1/b1/c1"),
+			expect:  createTestEntries("a1/", "a1/b1/", "a1/b1/c1/"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := &Ctx{
-				flags: tt.flags,
-				fs:    tt.filesys,
-			}
+			ctx, _ := NewCtx(tt.flags, tt.filesys, &Set[string]{})
 
 			entries, err := BuildEntries(ctx)
 			require.NoError(t, err)

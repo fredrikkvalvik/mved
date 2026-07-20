@@ -8,6 +8,11 @@ import (
 	"github.com/spf13/afero"
 )
 
+type FsEntry interface {
+	Name() string
+	IsDir() bool
+}
+
 type MvedContext interface {
 	// true if the paths should be printed as absolute paths
 	Abs() bool
@@ -24,7 +29,7 @@ type MvedContext interface {
 	FS() afero.Fs
 
 	MatchGlob(p string) bool
-	ResolvePath(p string) string
+	ResolvePath(path string, entry FsEntry) string
 	ShouldIgnoreEntry(p string) bool
 }
 
@@ -87,11 +92,18 @@ func (c *Ctx) ShouldIgnoreEntry(p string) bool {
 	return c.ignoredEntries.Has(p)
 }
 
-func (c *Ctx) ResolvePath(p string) string {
+func (c *Ctx) ResolvePath(p string, entry FsEntry) (path string) {
 	if c.flags.Abs {
-		return filepath.Clean(filepath.Join(c.cwd, p))
+		path = filepath.Clean(filepath.Join(c.cwd, p))
+	} else {
+		path = p
 	}
-	return p
+
+	if entry.IsDir() {
+		path += string(os.PathSeparator)
+	}
+
+	return path
 }
 
 func (c *Ctx) FS() afero.Fs {
