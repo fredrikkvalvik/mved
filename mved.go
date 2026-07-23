@@ -409,6 +409,10 @@ func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 	)
 
 	err := afero.Walk(ctx.FS(), ctx.Cwd(), func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		if path == ctx.Cwd() {
 			return nil
 		}
