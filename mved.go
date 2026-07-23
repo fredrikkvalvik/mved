@@ -166,7 +166,7 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 
 		// comment found, strip away
 		if commentIndex > -1 {
-			line = string([]rune(line)[0:commentIndex])
+			line = line[0:commentIndex]
 		}
 
 		// remove possible empty space after comment split

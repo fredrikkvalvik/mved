@@ -113,19 +113,13 @@ func (g *Graph) isDependant(node, dependancy Change) bool {
 		}
 	}
 
-	// cheap check to see if the node is possibly a dependancy
-	// (meaning that the dependancy entry is nested inside node)
-	if !strings.HasPrefix(dependancy.From.Path, node.From.Path) {
-		return false
+	// node is dependant if it has dependancy as part of its children tree
+	if node.From.IsParent(dependancy.From) {
+		return true
 	}
 
-	// count number of slashes. if they are equal, it means that
-	// that the entries are siblings, and don't depend on eachother.
-	if strings.Count(node.From.Path, "/") == strings.Count(dependancy.From.Path, "/") {
-		return false
-	}
-
-	return true
+	// no match
+	return false
 }
 
 func (g *Graph) String() string {

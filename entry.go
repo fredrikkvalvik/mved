@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 )
 
 type Entry struct {
@@ -15,6 +16,14 @@ func (e Entry) Name() string {
 
 func (e Entry) IsEqual(toCompare Entry) bool {
 	return EntryIsEqual(e, toCompare)
+}
+
+// returns true if e is anywhere in the parent tree of child.
+func (e Entry) IsParent(child Entry) bool {
+	parentPath := filepath.Clean(e.Path)
+	childPath := filepath.Clean(child.Path)
+
+	return strings.HasPrefix(childPath, parentPath+string(filepath.Separator))
 }
 
 func EntryIsEqual(a, b Entry) bool {
