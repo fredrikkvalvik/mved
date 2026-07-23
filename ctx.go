@@ -111,7 +111,7 @@ func (c *Ctx) FS() afero.Fs {
 }
 
 func (c *Ctx) ConfirmChanges(changes []Change) bool {
-	if !c.config.RequestConfirm {
+	if c.config.RequestConfirm {
 		return c.config.ConfirmFunc(changes)
 	}
 

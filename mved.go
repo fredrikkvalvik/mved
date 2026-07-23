@@ -466,7 +466,35 @@ func must[T any](v T, err error) T {
 }
 
 func confirmChangeset(changeset []Change) bool {
+	s := new(strings.Builder)
+	fmt.Fprintf(s, "Changes that will be made: \n\n")
+
+	for _, c := range changeset {
+		if c.To == nil {
+			fmt.Fprintf(s, "%s --\n", filepath.Clean(c.From.Path))
+		} else {
+			fmt.Fprintf(s, "%s -> %s\n", filepath.Clean(c.From.Path), filepath.Clean(c.To.Path))
+		}
+	}
 	// TODO: implement confirm action.
 	// block main thread and wait for user action. use typical "confirm?[y/N]"
-	return true
+	return confirmPrompt(s.String())
+}
+
+func confirmPrompt(msg string) bool {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Printf("%s\n\nconfirm?[y/N]", msg)
+
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+
+	switch strings.ToLower(strings.TrimSpace(input)) {
+	case "y", "yes":
+		return true
+	default:
+		return false
+	}
 }
