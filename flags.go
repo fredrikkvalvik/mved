@@ -11,6 +11,7 @@ type Flags struct {
 	Force     bool
 	Abs       bool
 	Recursive bool
+	Confirm   bool
 	Ignores   []string
 	Glob      string
 	Path      string
@@ -21,6 +22,7 @@ func NewFlags(args []string) (Flags, error) {
 		Force:     false,
 		Abs:       false,
 		Recursive: false,
+		Confirm:   false,
 		Glob:      "",
 		Path:      "",
 	}
@@ -35,6 +37,7 @@ func (f *Flags) Parse(args []string) error {
 	fs.BoolVar(&f.Abs, "a", f.Abs, "Edit the absolute paths instead of relative")
 	fs.BoolVar(&f.Force, "f", f.Force, "force flag must be set to delete files")
 	fs.BoolVar(&f.Recursive, "r", f.Recursive, "recursively change files from path")
+	fs.BoolVar(&f.Confirm, "i", f.Confirm, "asks for confirmations before executing the changeset")
 	fs.Var((*globVar)(&f.Glob), "glob", "a glob using the go filepath.Match pattern semantics for matching against entry names. flag can be used multiple times")
 	fs.Var((*multiFlag)(&f.Ignores), "ignore", "a comma-separated list of entry names that will be ignored. Uses same match semantics as glob. flag can be used multiple times")
 

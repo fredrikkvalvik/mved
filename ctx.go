@@ -32,6 +32,8 @@ type MvedContext interface {
 	MatchGlob(p string) bool
 	ResolvePath(path string, entry FsEntry) string
 	ShouldIgnoreEntry(p string) bool
+
+	ConfirmChanges(changes []Change) bool
 }
 
 // Ctx hold the main execution context and is responsible
@@ -106,4 +108,12 @@ func (c *Ctx) ResolvePath(p string, entry FsEntry) (path string) {
 
 func (c *Ctx) FS() afero.Fs {
 	return c.config.Fs
+}
+
+func (c *Ctx) ConfirmChanges(changes []Change) bool {
+	if !c.config.RequestConfirm {
+		return c.config.ConfirmFunc(changes)
+	}
+
+	return true
 }

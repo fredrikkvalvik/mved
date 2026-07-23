@@ -26,6 +26,7 @@ func main() {
 		WithIgnores(
 			".git",
 			"node_modules"),
+		WithConfirmFunc(confirmChangeset),
 	))
 
 	err := os.Chdir(config.Cwd)
@@ -84,6 +85,10 @@ func Run(ctx MvedContext) error {
 	changes, ok := graph.OutputChanges()
 	if !ok {
 		return fmt.Errorf("graph is not acyclic")
+	}
+
+	if !ctx.ConfirmChanges(changes) {
+		return nil
 	}
 
 	err = ExecuteChangeset(ctx.FS(), changes)
@@ -458,4 +463,10 @@ func must[T any](v T, err error) T {
 		os.Exit(1)
 	}
 	return v
+}
+
+func confirmChangeset(changeset []Change) bool {
+	// TODO: implement confirm action.
+	// block main thread and wait for user action. use typical "confirm?[y/N]"
+	return true
 }

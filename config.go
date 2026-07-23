@@ -16,6 +16,9 @@ type Config struct {
 
 	Fs afero.Fs
 
+	RequestConfirm bool
+	ConfirmFunc    func(changes []Change) bool
+
 	IgnoredEntries []string
 }
 
@@ -26,6 +29,9 @@ func ResolveConfig(f Flags, opts ...configOpt) (*Config, error) {
 		Abs:            f.Abs,
 		Recursive:      f.Recursive,
 		Glob:           f.Glob,
+		RequestConfirm: f.Confirm,
+
+		ConfirmFunc:    func(_ []Change) bool { return true },
 		IgnoredEntries: f.Ignores,
 	}
 	for _, opt := range opts {
@@ -80,5 +86,11 @@ func WithFs(root afero.Fs) configOpt {
 func WithCwd(cwd string) configOpt {
 	return func(c *Config) {
 		c.Cwd = cwd
+	}
+}
+
+func WithConfirmFunc(fn func(changes []Change) bool) configOpt {
+	return func(c *Config) {
+		c.ConfirmFunc = fn
 	}
 }
