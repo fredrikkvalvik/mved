@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/afero"
 )
@@ -38,17 +39,13 @@ type MvedContext interface {
 // concerns
 type Ctx struct {
 	flags          Flags
-	cwd            string
 	fs             afero.Fs
 	ignoredEntries *Set[string]
 }
 
 func NewCtx(f Flags, root afero.Fs, ignoredEntries *Set[string]) (*Ctx, error) {
-	cwd, _ := os.Getwd()
-
 	ctx := &Ctx{
 		flags:          f,
-		cwd:            cwd,
 		fs:             root,
 		ignoredEntries: ignoredEntries,
 	}
@@ -76,7 +73,7 @@ func (c *Ctx) Force() bool {
 }
 
 func (c *Ctx) Cwd() string {
-	return c.cwd
+	return c.flags.Cwd
 }
 
 func (c *Ctx) MatchGlob(p string) bool {
@@ -93,13 +90,13 @@ func (c *Ctx) ShouldIgnoreEntry(p string) bool {
 }
 
 func (c *Ctx) ResolvePath(p string, entry FsEntry) (path string) {
-	if c.flags.Abs {
-		path = filepath.Clean(filepath.Join(c.cwd, p))
+	if c.flags.Abs && !filepath.IsAbs(p) {
+		path = filepath.Clean(filepath.Join(c.flags.Cwd, p))
 	} else {
-		path = p
+		path = strings.TrimPrefix(p, (c.flags.Cwd)+string(os.PathSeparator))
 	}
 
-	if entry.IsDir() {
+	if entry.IsDir() && !strings.HasSuffix(path, string(os.PathSeparator)) {
 		path += string(os.PathSeparator)
 	}
 

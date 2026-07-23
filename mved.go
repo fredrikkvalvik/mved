@@ -363,7 +363,7 @@ func ensureParentDirExists(target string, root afero.Fs) error {
 }
 
 func readDir(ctx MvedContext) ([]Entry, error) {
-	e, err := afero.ReadDir(ctx.FS(), ".")
+	e, err := afero.ReadDir(ctx.FS(), ctx.Cwd())
 	if err != nil {
 		return nil, err
 	}
@@ -397,8 +397,8 @@ func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 		linecount = -1
 	)
 
-	err := afero.Walk(ctx.FS(), ".", func(path string, info fs.FileInfo, err error) error {
-		if path == "." {
+	err := afero.Walk(ctx.FS(), ctx.Cwd(), func(path string, info fs.FileInfo, err error) error {
+		if path == ctx.Cwd() {
 			return nil
 		}
 
@@ -462,10 +462,15 @@ we track changes to a file.
 - To rename an entry: change the name of the file/dir.
 - To delete an entry: delete the line (or comment out with "#").
 
+Usage:
+
+mved [path] [flags]
+
 Supported flags:
 -h: print help text
 -a: use absolute paths instead of relative.
 -r: recursively list files. default is is only current dir
 -f: must be set to be able to delete files
+-glob: use a glob pattern to only build a list of files where the file/dir name matches the glob. example: mved -glob \"*.jpeg\"
 `
 }
