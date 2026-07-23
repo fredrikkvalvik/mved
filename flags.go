@@ -10,20 +10,18 @@ import (
 type Flags struct {
 	Force     bool
 	Abs       bool
-	Help      bool
 	Recursive bool
 	Glob      string
-	Cwd       string
+	Path      string
 }
 
 func NewFlags(args []string) (Flags, error) {
 	f := Flags{
 		Force:     false,
 		Abs:       false,
-		Help:      false,
 		Recursive: false,
 		Glob:      "",
-		Cwd:       must(os.Getwd()),
+		Path:      must(os.Getwd()),
 	}
 
 	err := f.Parse(args)
@@ -32,15 +30,16 @@ func NewFlags(args []string) (Flags, error) {
 
 func (f *Flags) Parse(args []string) error {
 	fs := flag.NewFlagSet("mved", flag.ExitOnError)
-	flag.BoolVar(&f.Help, "h", f.Help, "Print help message")
+
 	fs.BoolVar(&f.Abs, "a", f.Abs, "Edit the absolute paths instead of relative")
 	fs.BoolVar(&f.Force, "f", f.Force, "force flag must be set to delete files")
 	fs.BoolVar(&f.Recursive, "r", f.Recursive, "recursively change files from path")
-	fs.StringVar(&f.Glob, "glob", f.Glob, "use a glob pattern to only build a list of files where the file/dir name matches the glob. example: mved -glob \"*.jpeg\"")
+	fs.Var((*globVar)(&f.Glob), "glob", "use a glob pattern to only build a list of files where the file/dir name matches the glob. example: mved -glob \"*.jpeg\"")
+
 	fs.Usage = func() {
 		out := fs.Output()
 		_, _ = fmt.Fprintln(out, docText())
-		_, _ = fmt.Fprintln(out, "Usage:\n\n  mved [path] [flags]\n\nFlags:")
+		_, _ = fmt.Fprintln(out, "Usage:\n\n  mved [flags] [path]\n\nFlags:")
 
 		fs.PrintDefaults()
 	}
@@ -50,8 +49,7 @@ func (f *Flags) Parse(args []string) error {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 	if cwd := fs.Arg(0); cwd != "" {
-		f.Cwd = must(filepath.Abs(cwd))
-
+		f.Path = must(filepath.Abs(cwd))
 	}
 
 	return nil
@@ -77,4 +75,24 @@ we track changes to a file.
 - To rename an entry: change the name of the file/dir.
 - To delete an entry: delete the line (or comment out with "#").
 `
+}
+
+// helper type for adding adding validation to the filepath glob
+type globVar string
+
+var _ flag.Value = (*globVar)(nil)
+
+// Set implements [flag.Value].
+func (g *globVar) Set(v string) error {
+	_, err := filepath.Match(v, "")
+	if err != nil {
+		return fmt.Errorf("invalid glob: %w", err)
+	}
+	*g = globVar(v)
+	return nil
+}
+
+// String implements [flag.Value].
+func (g *globVar) String() string {
+	return string(*g)
 }

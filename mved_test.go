@@ -59,7 +59,12 @@ func TestBuildEntries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, _ := NewCtx(tt.flags, tt.filesys, &Set[string]{})
+			cfg, err := ResolveConfig(tt.flags,
+				WithFs(tt.filesys),
+				WithCwd("."))
+
+			require.NoError(t, err)
+			ctx, _ := NewCtx(cfg)
 
 			entries, err := BuildEntries(ctx)
 			require.NoError(t, err)

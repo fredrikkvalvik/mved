@@ -22,17 +22,13 @@ import (
 
 func main() {
 	flags := must(NewFlags(os.Args[1:]))
-	root := afero.NewOsFs()
-
-	if flags.Help {
-		_, _ = fmt.Fprint(os.Stdout, docText())
-		os.Exit(0)
-	}
-
-	ctx, err := NewCtx(flags, root, NewSet(
-		".git",
-		"node_modules",
+	config := must(ResolveConfig(flags,
+		WithIgnores(
+			".git",
+			"node_modules"),
 	))
+
+	ctx, err := NewCtx(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

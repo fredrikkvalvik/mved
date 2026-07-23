@@ -38,19 +38,15 @@ type MvedContext interface {
 // for handling execution details that should not be direct
 // concerns
 type Ctx struct {
-	flags          Flags
-	fs             afero.Fs
-	ignoredEntries *Set[string]
+	config *Config
 }
 
-func NewCtx(f Flags, root afero.Fs, ignoredEntries *Set[string]) (*Ctx, error) {
+func NewCtx(config *Config) (*Ctx, error) {
 	ctx := &Ctx{
-		flags:          f,
-		fs:             root,
-		ignoredEntries: ignoredEntries,
+		config: config,
 	}
 
-	_, err := filepath.Match(ctx.flags.Glob, "")
+	_, err := filepath.Match(ctx.config.Glob, "")
 	if err != nil {
 		return nil, fmt.Errorf("bad glob pattern: %w", err)
 	}
@@ -61,39 +57,39 @@ func NewCtx(f Flags, root afero.Fs, ignoredEntries *Set[string]) (*Ctx, error) {
 var _ MvedContext = (*Ctx)(nil)
 
 func (c *Ctx) Abs() bool {
-	return c.flags.Abs
+	return c.config.Abs
 }
 
 func (c *Ctx) Recursive() bool {
-	return c.flags.Recursive
+	return c.config.Recursive
 }
 
 func (c *Ctx) Force() bool {
-	return c.flags.Force
+	return c.config.Force
 }
 
 func (c *Ctx) Cwd() string {
-	return c.flags.Cwd
+	return c.config.Cwd
 }
 
 func (c *Ctx) MatchGlob(p string) bool {
-	if c.flags.Glob != "" {
+	if c.config.Glob != "" {
 		// we can ignore the error since we did a check at Ctx init.
-		ok, _ := filepath.Match(c.flags.Glob, p)
+		ok, _ := filepath.Match(c.config.Glob, p)
 		return ok
 	}
 	return true
 }
 
 func (c *Ctx) ShouldIgnoreEntry(p string) bool {
-	return c.ignoredEntries.Has(p)
+	return c.config.IgnoredEntries.Has(p)
 }
 
 func (c *Ctx) ResolvePath(p string, entry FsEntry) (path string) {
-	if c.flags.Abs && !filepath.IsAbs(p) {
-		path = filepath.Clean(filepath.Join(c.flags.Cwd, p))
+	if c.config.Abs && !filepath.IsAbs(p) {
+		path = filepath.Clean(filepath.Join(c.config.Cwd, p))
 	} else {
-		path = strings.TrimPrefix(p, (c.flags.Cwd)+string(os.PathSeparator))
+		path = strings.TrimPrefix(p, (c.config.Cwd)+string(os.PathSeparator))
 	}
 
 	if entry.IsDir() && !strings.HasSuffix(path, string(os.PathSeparator)) {
@@ -104,5 +100,5 @@ func (c *Ctx) ResolvePath(p string, entry FsEntry) (path string) {
 }
 
 func (c *Ctx) FS() afero.Fs {
-	return c.fs
+	return c.config.Fs
 }
