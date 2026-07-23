@@ -471,9 +471,9 @@ func confirmChangeset(changeset []Change) bool {
 
 	for _, c := range changeset {
 		if c.To == nil {
-			fmt.Fprintf(s, "%s --\n", filepath.Clean(c.From.Path))
+			fmt.Fprintf(s, "%s x\n", filepath.Clean(c.From.Path))
 		} else {
-			fmt.Fprintf(s, "%s -> %s\n", filepath.Clean(c.From.Path), filepath.Clean(c.To.Path))
+			fmt.Fprintf(s, "%s > %s\n", filepath.Clean(c.From.Path), filepath.Clean(c.To.Path))
 		}
 	}
 	// TODO: implement confirm action.
@@ -484,7 +484,7 @@ func confirmChangeset(changeset []Change) bool {
 func confirmPrompt(msg string) bool {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Printf("%s\n\nconfirm?[y/N]", msg)
+	fmt.Printf("%s\nconfirm?[y/N]", msg)
 
 	input, err := reader.ReadString('\n')
 	if err != nil {
