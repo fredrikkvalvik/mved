@@ -21,10 +21,11 @@ type Config struct {
 // fs defaults to [afero.OsFs]
 func ResolveConfig(f Flags, opts ...configOpt) (*Config, error) {
 	c := Config{
-		Force:     f.Force,
-		Abs:       f.Abs,
-		Recursive: f.Recursive,
-		Glob:      f.Glob,
+		Force:          f.Force,
+		Abs:            f.Abs,
+		Recursive:      f.Recursive,
+		Glob:           f.Glob,
+		IgnoredEntries: NewSet(f.Ignores...),
 	}
 	for _, opt := range opts {
 		opt(&c)

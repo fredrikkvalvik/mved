@@ -4,12 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 type Flags struct {
 	Force     bool
 	Abs       bool
 	Recursive bool
+	Ignores   []string
 	Glob      string
 	Path      string
 }
@@ -34,6 +36,7 @@ func (f *Flags) Parse(args []string) error {
 	fs.BoolVar(&f.Force, "f", f.Force, "force flag must be set to delete files")
 	fs.BoolVar(&f.Recursive, "r", f.Recursive, "recursively change files from path")
 	fs.Var((*globVar)(&f.Glob), "glob", "use a glob pattern to only build a list of files where the file/dir name matches the glob. example: mved -glob \"*.jpeg\"")
+	fs.Var((*multiFlag)(&f.Ignores), "ignore", "a comma-separated list of entry names that will be ignored. flag can be used multiple times.")
 
 	fs.Usage = func() {
 		out := fs.Output()
@@ -98,4 +101,23 @@ func (g *globVar) Set(v string) error {
 // String implements [flag.Value].
 func (g *globVar) String() string {
 	return string(*g)
+}
+
+// helper type for adding adding validation to the filepath glob
+type multiFlag []string
+
+var _ flag.Value = (*multiFlag)(nil)
+
+// Set implements [flag.Value].
+func (g *multiFlag) Set(v string) error {
+	for v := range strings.SplitSeq(v, ",") {
+		v = strings.TrimSpace(v)
+		*g = append(*g, v)
+	}
+	return nil
+}
+
+// String implements [flag.Value].
+func (g *multiFlag) String() string {
+	return strings.Join(([]string)(*g), ",")
 }
