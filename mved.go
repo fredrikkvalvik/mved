@@ -21,11 +21,11 @@ import (
 )
 
 func main() {
-	flags := NewFlags()
+	flags := must(NewFlags(os.Args[1:]))
 	root := afero.NewOsFs()
 
 	if flags.Help {
-		_, _ = fmt.Fprint(os.Stdout, help())
+		_, _ = fmt.Fprint(os.Stdout, docText())
 		os.Exit(0)
 	}
 
@@ -442,35 +442,10 @@ func printEntries(e []Entry) string {
 	return b.String()
 }
 
-func help() string {
-	return `mved is a tool for renaming/moving/deleting files and direcories using $EDITOR.
-
-mved is able to:
-- move files/dirs
-- rename files/dirs
-- delete files/dirs
-
-All of this is controlled using $EDTIOR.
-
-The way it works is by running the program in a
-given directory, the editor opens with a list
-of files, where each file has a number at the start of
-each line. The number is the ID of a given files and is how
-we track changes to a file.
-
-- To move an entry: change the path of the file/dir.
-- To rename an entry: change the name of the file/dir.
-- To delete an entry: delete the line (or comment out with "#").
-
-Usage:
-
-mved [path] [flags]
-
-Supported flags:
--h: print help text
--a: use absolute paths instead of relative.
--r: recursively list files. default is is only current dir
--f: must be set to be able to delete files
--glob: use a glob pattern to only build a list of files where the file/dir name matches the glob. example: mved -glob \"*.jpeg\"
-`
+func must[T any](v T, err error) T {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	return v
 }
