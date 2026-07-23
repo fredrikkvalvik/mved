@@ -28,6 +28,12 @@ func main() {
 			"node_modules"),
 	))
 
+	err := os.Chdir(config.Cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
 	ctx, err := NewCtx(config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
