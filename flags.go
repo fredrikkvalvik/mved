@@ -48,8 +48,12 @@ func (f *Flags) Parse(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
-	if cwd := fs.Arg(0); cwd != "" {
-		f.Path = must(filepath.Abs(cwd))
+	switch fs.NArg() {
+	case 0:
+	case 1:
+		f.Path = fs.Arg(0)
+	default:
+		return fmt.Errorf("expect 0 or 1 args, got %d", fs.NArg())
 	}
 
 	return nil

@@ -403,7 +403,7 @@ func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 			return fs.SkipDir
 		}
 
-		if match := ctx.MatchGlob(path); match {
+		if match := ctx.MatchGlob(info.Name()); match {
 			linecount += 1
 			entry := Entry{
 				ID:   linecount,
