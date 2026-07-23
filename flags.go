@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"path/filepath"
 )
 
@@ -21,7 +20,7 @@ func NewFlags(args []string) (Flags, error) {
 		Abs:       false,
 		Recursive: false,
 		Glob:      "",
-		Path:      must(os.Getwd()),
+		Path:      "",
 	}
 
 	err := f.Parse(args)
