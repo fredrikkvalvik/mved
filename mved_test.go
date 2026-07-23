@@ -24,6 +24,19 @@ func fsDeep() afero.Fs {
 	return root
 }
 
+func fsGlob() afero.Fs {
+	root := afero.NewMemMapFs()
+	_, _ = root.Create("file_a")
+	_, _ = root.Create("file_b")
+	_, _ = root.Create("file_c")
+
+	_ = root.Mkdir("nested", 0)
+	_, _ = root.Create("nested/nested_a")
+	_, _ = root.Create("nested/nested_b")
+	_, _ = root.Create("nested/nested_c")
+	return root
+}
+
 func TestBuildEntries(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -54,6 +67,53 @@ func TestBuildEntries(t *testing.T) {
 			flags:   Flags{Recursive: true},
 			filesys: fsDeep(),
 			expect:  createTestEntries("a1/", "a1/b1/", "a1/b1/c1/"),
+		},
+		{
+			name:    "glob dir, no glob",
+			flags:   Flags{Recursive: false},
+			filesys: fsGlob(),
+			expect: createTestEntries(
+				"file_a",
+				"file_b",
+				"file_c",
+				"nested/",
+			),
+		},
+		{
+			name:    "glob flat: `*_a`",
+			flags:   Flags{Recursive: false, Glob: "*_a"},
+			filesys: fsGlob(),
+			expect: createTestEntries(
+				"file_a",
+			),
+		},
+		{
+			name:    "glob recursive: `*_a`",
+			flags:   Flags{Recursive: true, Glob: "*_a"},
+			filesys: fsGlob(),
+			expect: createTestEntries(
+				"file_a",
+				"nested/nested_a",
+			),
+		},
+		{
+			name:    "glob flat: `nested_*`",
+			flags:   Flags{Recursive: false, Glob: "nested*"},
+			filesys: fsGlob(),
+			expect: createTestEntries(
+				"nested/",
+			),
+		},
+		{
+			name:    "glob recursive: `nested_*`",
+			flags:   Flags{Recursive: true, Glob: "nested*"},
+			filesys: fsGlob(),
+			expect: createTestEntries(
+				"nested/",
+				"nested/nested_a",
+				"nested/nested_b",
+				"nested/nested_c",
+			),
 		},
 	}
 
