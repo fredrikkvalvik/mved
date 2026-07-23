@@ -1,0 +1,14 @@
+# :schema https://git.sr.ht/~timharek/git-bump/blob/main/schema.json
+[versioning]
+  convention = "semver"
+  prefix = "v"
+  format = "{major}.{minor}.{patch}"
+  timezone = "UTC"
+
+[git]
+  remote = "origin"
+  auto_push = false
+
+[messages]
+  use_shortlog = false
+  custom_messages = []
