@@ -72,7 +72,7 @@ mved is able to:
 - rename files/dirs
 - delete files/dirs
 
-All of this is controlled using $EDTIOR.
+All of this is controlled using $EDITOR.
 
 The way it works is by running the program in a
 given directory, the editor opens with a list
