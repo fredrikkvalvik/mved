@@ -81,8 +81,13 @@ func (c *Ctx) MatchGlob(p string) bool {
 	return true
 }
 
-func (c *Ctx) ShouldIgnoreEntry(p string) bool {
-	return c.config.IgnoredEntries.Has(p)
+func (c *Ctx) ShouldIgnoreEntry(name string) bool {
+	for _, pattern := range c.config.IgnoredEntries {
+		if match, _ := filepath.Match(pattern, name); match {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Ctx) ResolvePath(p string, entry FsEntry) (path string) {

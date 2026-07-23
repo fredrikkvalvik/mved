@@ -400,7 +400,11 @@ func readDirRecursive(ctx MvedContext) ([]Entry, error) {
 
 		// skip ignored entries
 		if ctx.ShouldIgnoreEntry(info.Name()) {
-			return fs.SkipDir
+			// skipping non-dir skips the parent dir and possibly stops the program
+			if info.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
 		}
 
 		if match := ctx.MatchGlob(info.Name()); match {

@@ -14,8 +14,9 @@ type Config struct {
 	Glob      string
 	Cwd       string
 
-	Fs             afero.Fs
-	IgnoredEntries *Set[string]
+	Fs afero.Fs
+
+	IgnoredEntries []string
 }
 
 // fs defaults to [afero.OsFs]
@@ -25,7 +26,7 @@ func ResolveConfig(f Flags, opts ...configOpt) (*Config, error) {
 		Abs:            f.Abs,
 		Recursive:      f.Recursive,
 		Glob:           f.Glob,
-		IgnoredEntries: NewSet(f.Ignores...),
+		IgnoredEntries: f.Ignores,
 	}
 	for _, opt := range opts {
 		opt(&c)
@@ -53,7 +54,7 @@ func ResolveConfig(f Flags, opts ...configOpt) (*Config, error) {
 
 	// default to non-nil empty set
 	if c.IgnoredEntries == nil {
-		c.IgnoredEntries = NewSet[string]()
+		c.IgnoredEntries = []string{}
 	}
 
 	return &c, nil
@@ -64,15 +65,7 @@ type configOpt func(c *Config)
 // add ignored entries to config
 func WithIgnores(ignoredEntries ...string) configOpt {
 	return func(c *Config) {
-		// create new set if non exists
-		if c.IgnoredEntries == nil {
-			c.IgnoredEntries = NewSet(ignoredEntries...)
-			return
-		}
-		// insert into set if already there
-		for _, entry := range ignoredEntries {
-			c.IgnoredEntries.Insert(entry)
-		}
+		c.IgnoredEntries = append(c.IgnoredEntries, ignoredEntries...)
 	}
 }
 
