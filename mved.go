@@ -173,7 +173,7 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 		line = strings.TrimSpace(line)
 
 		// split into what should be id and path
-		fields := strings.Fields(line)
+		fields := strings.SplitN(line, " ", 2)
 
 		// we expect two fields, id and path
 		if len(fields) != 2 {
@@ -181,7 +181,11 @@ func ParseEntries(buf io.Reader) ([]Entry, error) {
 			continue
 		}
 
-		idStr, entryPath := fields[0], fields[1]
+		// trim space from field[1] to handle the case where an extra space is added.
+		//
+		// This does make it so that we dont handle entries with leading/trailing space correctly,
+		// but that seems like to much of an edge case to handle.
+		idStr, entryPath := fields[0], strings.TrimSpace(fields[1])
 
 		// expect first field to be the ID
 		// try to parse the first field to an integer
